@@ -1573,9 +1573,66 @@ setInterval(()=>{
 }, 1500);
 
 /* ============================================================
+   FIREBASE CLOUD DATABASE (Replaces localStorage)
+   ============================================================ */
+async function loadDB() {
+  const { doc, onSnapshot, setDoc } = window.firestore;
+  const dbDocRef = doc(window.firestore.db, "appData", "state");
+  
+  onSnapshot(dbDocRef, (docSnap) => {
+    if (docSnap.exists()) {
+      DB = docSnap.data();
+    } else {
+      console.log("No data found, creating initial seed data.");
+      DB = seed();
+      setDoc(dbDocRef, DB);
+    }
+    
+    // Refresh the UI whenever data arrives from the cloud
+    if (document.getElementById('screen-pod').classList.contains('active')) renderPod();
+    else if (document.getElementById('screen-engineer').classList.contains('active')) renderEngineer();
+    else if (document.getElementById('screen-manager').classList.contains('active')) renderManager();
+    else if (document.getElementById('screen-waiting').classList.contains('active') && waitingCheckId) renderWaiting();
+  });
+}
+
+async function saveDB() {
+  const { doc, setDoc } = window.firestore;
+  const dbDocRef = doc(window.firestore.db, "appData", "state");
+  try {
+    await setDoc(dbDocRef, DB);
+  } catch (e) {
+    console.error("Error saving:", e);
+  }
+}
+
+/* ============================================================
    BOOT
    ============================================================ */
-loadDB(); updateTopbar(); renderPod();
+updateTopbar(); 
+renderPod(); 
+loadDB();
+</script>
+
+<!-- FIREBASE SDK INITIALIZATION -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAFYjjKNYRhds9ejMlgqlC95LFLbCKFH5g",
+    authDomain: "walkaround-demo.firebaseapp.com",
+    projectId: "walkaround-demo",
+    storageBucket: "walkaround-demo.firebasestorage.app",
+    messagingSenderId: "519311970633",
+    appId: "1:519311970633:web:5b81a43bff65429a590a98"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Make these available to your main script
+  window.firestore = { doc, onSnapshot, setDoc, db };
 </script>
 </body>
 </html>
