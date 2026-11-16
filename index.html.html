@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Walkaround — Daily Check System</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:#151f31; --panel2:#1e2b40; --line:#26344d;
+  --text:#e6edf7; --muted:#8ba0bd; --accent:#38bdf8;
+  --pass:#22c55e; --defect:#ef4444; --na:#64748b; --warn:#f59e0b;
+  --radius:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.topbar{
+  height:52px; flex:0 0 52px; display:flex; align-items:center; gap:8px;
+  padding:0 14px; background:#0d1524; border-bottom:1px solid var(--line);
+  font-size:13px; color:var(--muted); z-index:10;
+}
+.topbar .brand{font-weight:700;color:var(--text);letter-spacing:.4px}
+.topbar .brand span{color:var(--accent)}
+.spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:999px;background:var(--panel2);border:1px solid var(--line);
+  font-size:12px;cursor:pointer;user-select:none;
+}
+.pill.driver{border-color:#38bdf8;color:#7dd3fc}
+.pill.on{color:var(--pass);border-color:#1e4d33;background:#0f2a1c}
+.pill.off{color:var(--defect);border-color:#4d1e1e;background:#2a0f0f}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+main{flex:1;overflow-y:auto;display:flex;justify-content:center}
+.screen{width:100%;max-width:880px;padding:22px 18px 40px;display:none}
+.screen.active{display:block}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:17px;margin:0 0 10px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;margin-bottom:12px;
+}
+.card.clickable{cursor:pointer;transition:.12s}
+.card.clickable:active{transform:scale(.99);background:var(--panel2)}
+.row{display:flex;align-items:center;gap:12px}
+.btn{
+  border:0;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:600;
+  color:#08111f;background:var(--accent);cursor:pointer;font-family:inherit;
+}
+.btn:active{filter:brightness(.9)}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.btn.danger{background:#dc2626;color:#fff}
+.btn.success{background:#16a34a;color:#fff}
+.btn.small{padding:8px 14px;font-size:13px;border-radius:9px}
+.badge{
+  display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;
+  font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+}
+.b-green{background:#0f2a1c;color:#4ade80}
+.b-red{background:#2a0f0f;color:#f87171}
+.b-amber{background:#2a1f0a;color:#fbbf24}
+.b-grey{background:#1c2637;color:var(--muted)}
+.b-blue{background:#0c2437;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+
+.pod-hero{
+  min-height:calc(100vh - 52px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:40px 24px 60px; position:relative; overflow:hidden; text-align:center;
+}
+.pod-hero::before{
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 32%, #16324f88 0%, transparent 55%),
+             radial-gradient(circle at 80% 90%, #1a4a6622 0%, transparent 40%);
+  pointer-events:none;
+}
+.pod-wordmark{font-size:13px; letter-spacing:6px; color:var(--muted); text-transform:uppercase; margin-bottom:8px; position:relative}
+.pod-title{font-size:30px; font-weight:700; letter-spacing:-.5px; margin:0 0 6px; position:relative}
+.pod-title span{color:var(--accent)}
+.pod-sub{color:var(--muted); font-size:15px; margin:0 0 42px; position:relative}
+.nfc-wrap{position:relative; width:230px; height:230px; margin:0 auto; display:flex; align-items:center; justify-content:center}
+.nfc-ring{position:absolute; inset:0; border-radius:50%; border:1.5px solid #38bdf866; animation:nfcPulse 2.8s ease-out infinite}
+.nfc-ring:nth-child(2){animation-delay:.9s}
+.nfc-ring:nth-child(3){animation-delay:1.8s}
+@keyframes nfcPulse{0%{transform:scale(.78);opacity:0}35%{opacity:.9}100%{transform:scale(1.42);opacity:0}}
+.nfc-core{
+  position:absolute; inset:48px; border-radius:50%;
+  background:radial-gradient(circle at 50% 38%, #1a3a5a, #0b1a2c);
+  border:1.5px solid #2e5473;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px;
+  cursor:pointer; transition:.2s;
+  box-shadow:0 10px 50px #38bdf833, inset 0 1px 0 #ffffff11;
+}
+.nfc-core:active{transform:scale(.95); box-shadow:0 0 60px #38bdf866}
+.nfc-glyph{font-size:42px; filter:drop-shadow(0 0 12px #38bdf8aa)}
+.nfc-label{font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase}
+.nfc-hint{position:relative; margin-top:36px; color:var(--muted); font-size:13px}
+.pod-driver-label{position:relative; font-size:10px; letter-spacing:2px; color:#4a5b75; text-transform:uppercase; margin-top:38px}
+.pod-drivers{position:relative; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:14px; max-width:420px}
+.pod-drivers .btn{padding:10px 16px; font-size:13px; border-radius:10px}
+.pod-device{
+  position:relative; margin-top:36px; color:var(--muted); font-size:12px;
+  display:flex; gap:18px; justify-content:center; flex-wrap:wrap;
+  padding:9px 16px; border-radius:999px; background:#0e1727; border:1px solid var(--line);
+}
+
+.qr-hero{
+  background:linear-gradient(160deg, #14233a, #0e1a2b);
+  border:1px solid #2b4a63; border-radius:20px; padding:64px 24px;
+  text-align:center; cursor:pointer; position:relative; overflow:hidden;
+  transition:.18s; margin-top:16px;
+}
+.qr-hero:active{transform:scale(.985); border-color:var(--accent)}
+.qr-hero::before{
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 45%, #38bdf822, transparent 60%);
+  pointer-events:none;
+}
+.qr-icon{font-size:64px; color:var(--accent); margin-bottom:18px; position:relative; filter:drop-shadow(0 0 24px #38bdf866)}
+.qr-title{font-size:22px; font-weight:700; margin-bottom:6px; position:relative}
+.qr-sub{color:var(--muted); font-size:14px; position:relative}
+
+.scan-overlay{
+  position:fixed; inset:0; background:#05090f; z-index:100;
+  display:none; flex-direction:column; padding:24px;
+}
+.scan-overlay.active{display:flex}
+.scan-viewport{flex:1; display:flex; align-items:center; justify-content:center}
+.scan-reticle{
+  position:relative; width:min(72vw, 320px); height:min(72vw, 320px); border-radius:18px;
+  background:linear-gradient(135deg, #0a1622, #0f1e2e);
+  box-shadow:inset 0 0 80px #000, 0 0 80px #38bdf822; overflow:hidden;
+}
+.scan-line{
+  position:absolute; left:8%; right:8%; height:2px;
+  background:linear-gradient(90deg, transparent, #38bdf8, transparent);
+  box-shadow:0 0 24px #38bdf8; animation:scanMove 1.6s ease-in-out infinite;
+}
+@keyframes scanMove{0%,100%{top:12%}50%{top:88%}}
+.scan-corner{position:absolute; width:40px; height:40px; border:3px solid #38bdf8}
+.scan-corner.tl{top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:18px}
+.scan-corner.tr{top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:18px}
+.scan-corner.bl{bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:18px}
+.scan-corner.br{bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:18px}
+.scan-status{text-align:center; color:var(--muted); font-size:14px; margin:24px 0 20px; letter-spacing:.3px}
+.scan-result{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:4px}
+.scan-result h2{margin:12px 0 4px; font-size:28px}
+.scan-actions{display:flex; flex-direction:column; gap:10px; padding-top:20px}
+
+.photo-overlay{
+  position:fixed; inset:0; background:#000000dd; z-index:200;
+  display:none; align-items:center; justify-content:center; padding:24px;
+}
+.photo-overlay.active{display:flex}
+.photo-content{
+  background:var(--panel); border-radius:16px; padding:20px; max-width:90vw; text-align:center;
+}
+.photo-placeholder{
+  width:300px; height:300px; max-width:70vw; max-height:60vh;
+  background:linear-gradient(135deg, #1e3a5f, #0f2236);
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:80px; margin-bottom:14px;
+}
+.photo-meta{color:var(--muted); font-size:13px}
+
+.progressbar{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px 0 20px}
+.progressbar > div{height:100%;background:var(--accent);transition:width .2s}
+.ci-cat{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:700}
+.ci-prompt{font-size:21px;line-height:1.35;margin:10px 0 8px;font-weight:600}
+.ci-hint{color:var(--muted);font-size:13px;margin-bottom:26px}
+.answers{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.ans{
+  height:86px;border-radius:16px;border:1px solid var(--line);background:var(--panel);
+  color:var(--text);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  transition:.1s;
+}
+.ans .ico{font-size:22px}
+.ans.pass{border-color:#1e4d33;background:#0f2a1c;color:#6ee7a0}
+.ans.defect{border-color:#4d1e1e;background:#2a0f0f;color:#fca5a5}
+.ans.na{border-color:#2b3a52;color:var(--muted)}
+.ans.sel{outline:2px solid var(--accent);outline-offset:2px}
+.ans:active{transform:scale(.97)}
+.defect-panel{margin-top:18px;border-top:1px solid var(--line);padding-top:18px}
+label.fl{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:14px 0 6px}
+textarea{
+  width:100%;min-height:76px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:11px;color:var(--text);padding:12px;font-family:inherit;font-size:15px;resize:vertical;
+}
+.minirow{display:flex;gap:10px;margin-top:10px}
+.thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.thumb{
+  width:64px;height:64px;border-radius:9px;background:linear-gradient(135deg,#1e3a5f,#0f2236);
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-size:22px;position:relative;cursor:pointer;
+}
+.thumb::after{content:"✓";position:absolute;bottom:2px;right:5px;font-size:10px;color:var(--pass)}
+.offline-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
+  border-radius:999px;background:#2a1f0a;border:1px solid #7c5a0a;
+  color:#fbbf24;font-size:11px;font-weight:600;
+}
+.flash{position:fixed;inset:0;background:#22c55e22;pointer-events:none;opacity:0;transition:opacity .1s}
+.flash.on{opacity:.9}
+
+.srow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+.srow:last-child{border-bottom:0}
+.srow:active{background:var(--panel2)}
+.srow .nm{flex:1}
+.srow .edit-ico{color:var(--muted);font-size:14px}
+
+.stop-hero, .waiting-hero{
+  min-height:calc(100vh - 52px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:40px 24px; text-align:center; position:relative;
+}
+.stop-hero::before{
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 25%, #7f1d1d33 0%, transparent 60%); pointer-events:none;
+}
+.stop-icon{font-size:72px; margin-bottom:16px; position:relative}
+.stop-title{font-size:26px; font-weight:700; margin:0 0 6px; color:#fca5a5; position:relative}
+.stop-sub{color:var(--muted); font-size:15px; margin:0 0 30px; max-width:480px; position:relative}
+.stop-card{
+  background:var(--panel); border:1px solid #7f1d1d; border-radius:16px;
+  padding:18px; width:100%; max-width:520px; text-align:left; margin-bottom:14px; position:relative;
+}
+.ops-call{
+  background:linear-gradient(160deg, #1a2e45, #0f1e2e);
+  border:1px solid #2b4a63; border-radius:16px;
+  padding:22px; width:100%; max-width:520px; margin-bottom:14px; position:relative;
+}
+.ops-number{font-size:26px; font-weight:700; letter-spacing:.5px; margin:6px 0 14px}
+.stop-actions{display:flex; flex-direction:column; gap:10px; width:100%; max-width:520px; position:relative}
+
+.waiting-hero::before{
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 25%, #1e3a5f55 0%, transparent 60%); pointer-events:none;
+}
+.waiting-icon{font-size:56px; margin-bottom:14px; animation:waitPulse 2s ease-in-out infinite}
+@keyframes waitPulse{0%,100%{opacity:.7;transform:scale(.97)}50%{opacity:1;transform:scale(1)}}
+.waiting-title{font-size:24px; font-weight:700; margin:0 0 6px; position:relative}
+.waiting-sub{color:var(--muted); font-size:14px; margin:0 0 24px; max-width:460px; position:relative}
+.status-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  padding:16px; width:100%; max-width:520px; text-align:left; margin-bottom:12px; position:relative;
+}
+.status-row{display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px}
+.status-row + .status-row{border-top:1px solid var(--line)}
+.status-label{color:var(--muted)}
+
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tab{
+  padding:9px 16px;border-radius:99px;background:var(--panel);border:1px solid var(--line);
+  color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;
+}
+.tab.active{background:var(--accent);color:#08111f;border-color:var(--accent)}
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:var(--line)}
+.tl-item{position:relative;padding:0 0 14px}
+.tl-item::before{
+  content:"";position:absolute;left:-20px;top:4px;width:11px;height:11px;border-radius:50%;
+  background:var(--panel2);border:2px solid var(--line);
+}
+.tl-item.check::before{background:var(--accent);border-color:var(--accent)}
+.tl-item.defect::before{background:var(--defect);border-color:var(--defect)}
+.tl-item.good::before{background:var(--pass);border-color:var(--pass)}
+.tl-item.eng::before{background:#c4b5fd;border-color:#c4b5fd}
+.tl-head{display:flex;gap:10px;align-items:baseline;font-size:13px}
+.tl-time{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;min-width:110px}
+.tl-delta{font-size:11px;color:var(--accent);font-weight:600;min-width:50px}
+.tl-text{font-size:13px;margin-top:2px;padding-left:120px}
+.empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px}
+.action-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.eng-action{
+  padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+}
+.eng-action:active{transform:scale(.97)}
+.eng-action.primary{background:var(--accent);color:#08111f;border-color:var(--accent)}
+.eng-action.success{background:#14532d;color:#6ee7a0;border-color:#166534}
+.eng-action.danger{background:#3a1414;color:#fca5a5;border-color:#7f1d1d}
+.eng-action.warn{background:#3a2c0a;color:#fbbf24;border-color:#7c5a0a}
+
+/* Engineer accordion */
+.eng-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;transition:.15s}
+.eng-card.expanded{border-color:#38bdf8}
+.eng-head{padding:16px;cursor:pointer;user-select:none}
+.eng-head:active{background:var(--panel2)}
+.eng-body{padding:0 16px 16px;border-top:1px solid var(--line)}
+.eng-body-pad{padding-top:14px}
+
+/* Manager */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi-box{
+  background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  padding:14px 12px; text-align:center;
+}
+.kpi-num{font-size:22px; font-weight:700; line-height:1}
+.kpi-label{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-top:6px}
+.photo-chip{
+  width:52px; height:52px; border-radius:8px;
+  background:linear-gradient(135deg,#1e3a5f,#0f2236);
+  border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center;
+  font-size:20px; cursor:pointer; margin-right:6px;
+}
+
+/* Print-friendly report (in-app preview) */
+.report-frame{
+  width:100%; border:0; background:#fff; border-radius:12px; min-height:calc(100vh - 130px);
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">WALK<span>AROUND</span></div>
+  <div class="spacer"></div>
+  <div class="pill driver" onclick="goToDriverView()">👤 Driver</div>
+  <div class="pill on" id="netPill" onclick="toggleNet()"><span class="dot"></span><span id="netText">Online</span></div>
+  <div class="pill" id="queuePill" onclick="showQueue()">Queue <b id="queueCount">0</b></div>
+  <div class="pill" onclick="openEngineer()">🔧 Engineer</div>
+  <div class="pill" onclick="openManager()">Manager</div>
+</div>
+
+<main>
+  <section class="screen active" id="screen-pod">
+    <div class="pod-hero">
+      <div class="pod-wordmark">Walkaround</div>
+      <h1 class="pod-title">Daily <span>Walkaround</span></h1>
+      <p class="pod-sub">Tap your ID card to begin your shift</p>
+      <div class="nfc-wrap">
+        <div class="nfc-ring"></div><div class="nfc-ring"></div><div class="nfc-ring"></div>
+        <div class="nfc-core" onclick="tapCard()">
+          <div class="nfc-glyph">📶</div>
+          <div class="nfc-label">Tap here</div>
+        </div>
+      </div>
+      <div class="nfc-hint">Hold your card near the reader</div>
+      <div class="pod-driver-label">Simulate card tap</div>
+      <div class="pod-drivers" id="podDrivers"></div>
+      <div class="pod-device" id="podDevice"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-vehicle">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div><h1 id="vehGreeting">Hi</h1><p class="sub" id="vehSub"></p></div>
+      <button class="btn ghost small" onclick="logout()">Sign out</button>
+    </div>
+    <div class="qr-hero" onclick="scanVehicle()">
+      <div class="qr-icon">▣</div>
+      <div class="qr-title">Scan vehicle QR</div>
+      <div class="qr-sub">Point the tablet at the code on the vehicle</div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-check">
+    <div class="row" style="justify-content:space-between">
+      <div class="muted" id="checkVehicle" style="font-size:13px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="offlinePill" style="display:none" class="offline-pill">⚠ Offline — saving locally</span>
+        <button class="btn ghost small" onclick="cancelCheck()">Cancel</button>
+      </div>
+    </div>
+    <div class="progressbar"><div id="progressFill" style="width:0%"></div></div>
+    <div id="checkBody"></div>
+  </section>
+
+  <section class="screen" id="screen-summary">
+    <h1>Review check</h1>
+    <p class="sub" id="summarySub"></p>
+    <div class="card" id="summaryList"></div>
+    <div class="muted" style="font-size:13px;text-align:center;margin-bottom:14px">Tap any row to change it</div>
+    <button class="btn" style="width:100%;padding:17px;font-size:17px" onclick="submitCheck()">Submit check</button>
+  </section>
+
+  <section class="screen" id="screen-stop"><div class="stop-hero" id="stopBody"></div></section>
+  <section class="screen" id="screen-waiting"><div class="waiting-hero" id="waitingBody"></div></section>
+
+  <section class="screen" id="screen-done">
+    <div class="pod-hero" style="min-height:auto;padding-top:40px">
+      <div style="font-size:64px" id="doneIcon">✅</div>
+      <h1 id="doneTitle">Check complete</h1>
+      <p class="sub" id="doneSub"></p>
+      <div class="card" id="doneSync" style="text-align:left;width:100%;max-width:520px;position:relative"></div>
+      <button class="btn" style="width:100%;max-width:520px;padding:16px;margin-top:6px" onclick="returnToPod()">Return tablet to pod</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-manager">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h1>Transport Manager</h1><p class="sub">Audit-ready compliance view</p></div>
+      <button class="btn ghost small" onclick="backToPod()">Back to pod</button>
+    </div>
+    <div id="managerKpis"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="vehicles" onclick="setMgrTab('vehicles')">Vehicles</button>
+      <button class="tab" data-tab="defects" onclick="setMgrTab('defects')">Defects</button>
+      <button class="tab" data-tab="timeline" onclick="setMgrTab('timeline')">Timeline</button>
+      <button class="tab" data-tab="export" onclick="setMgrTab('export')">Export</button>
+    </div>
+    <div id="managerBody"></div>
+  </section>
+
+  <section class="screen" id="screen-engineer">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h1>Engineer Console</h1><p class="sub">Release authority · 24/7</p></div>
+      <button class="btn ghost small" onclick="backToPod()">Back to pod</button>
+    </div>
+    <div class="tabs" id="engFilterTabs"></div>
+    <div id="engineerBody"></div>
+  </section>
+</main>
+
+<div class="scan-overlay" id="scanOverlay"></div>
+<div class="photo-overlay" id="photoOverlay" onclick="closePhoto(event)"></div>
+<div class="flash" id="flash"></div>
+
+<script>
+/* ============================================================
+   CONSTANTS & UTIL
+   ============================================================ */
+const LS_KEY = 'walkaround_v3';
+const OPS_PHONE = '0800 123 4567';
+const OPS_PHONE_TEL = '08001234567';
+
+const STATUS_BADGE = { in_service:'b-green', held:'b-amber', move_to_vmu:'b-blue', attending_yard:'b-amber', vor:'b-red', released:'b-green' };
+const STATUS_LABEL = { in_service:'In service', held:'Held', move_to_vmu:'Move to VMU', attending_yard:'Engineers attending', vor:'VOR', released:'Released' };
+const DRIVER_FACING_UPDATE = { move_to_vmu:'Engineer has authorised movement to VMU', attending_yard:'Engineers are on their way to the yard', vor:'Vehicle is VOR — workshop required', released:'Vehicle has been released by engineer' };
+const STATUS_PRIORITY = { vor:0, held:1, attending_yard:1, move_to_vmu:1, released:2, in_service:3 };
+
+const WALKAROUND_ITEMS = [
+  ['Lamps & Indicators', 'Operations of all Lamps and Indicators, Reflectors are Clear and Visible', true],
+  ['Body & Emergency Doors', 'Number Plates, Panels Secure & External Operation of Emergency Door/s', false],
+  ['Mirrors, Glazing & Wipers', 'External Mirrors & Glazing and Condition of Windscreen Wipers / Screen Wash', false],
+  ['Signage', 'Destination Blind*, Legal Lettering, Operator Licence Disc', false],
+  ['Tyres & Wheels', 'Tyres, Wheels, Mudflaps, Presence of Alignment Markers, Wheel Fixings', true],
+  ['Filler Caps', 'Luggage Doors*, Fuel, Adblue, Coolant Filler Caps Secure', false],
+  ['Leaks', 'Exterior Fuel / Oil / Coolant Leaks & Audible Air Leaks', false],
+  ['Doors & Access', 'Door Mechanism, Access Ramp*, Kneeling Function*, Wheelchair Arm*', false],
+  ['Safety Equipment', 'Fire Extinguisher, First Aid Kit, Break Glass Hammer*, Safe T-Punch Tabs', false],
+  ['Saloon Interior', 'Saloon Trip Hazards, Internal Bells, Internal Lights, Seats & Seatbelts*', false],
+  ['Emergency Door (Internal)', 'Internal Operation of Emergency Door & Audible Alarm', true],
+  ["Driver's Seat", "Driver's Seat Security & Adjustment, Driver's Seat Belt*", false],
+  ['Controls & Steering', 'Steering Controls / Adjustment, Driver Controls, Horn & ADAS', false],
+  ['Dash & Brakes', 'Dash Warning Lights including MIL, Handbrake Operation, Air Build Up, Internal Audible Air Leaks', true],
+  ['Fuel & Adblue Gauges', 'Fuel / Adblue Gauges — Minimum 50%', false],
+  ['Tachograph', 'Tachograph Operation & Two Spare Rolls of Tachograph Paper*', false],
+  ['Height & Camera', 'Vehicle Height Sticker Present, Periscope (Stairs) Camera Operational*', false],
+  ['HVAC', 'Heating, Ventilation, Air-Conditioning, Demisters', false],
+  ['Reverse Camera & Sensors', 'Reverse Camera / Sensors', false],
+  ['Driver Ancillary', 'Driver Ancillary Equipment Present & Operational (Radio etc.)', false],
+  ['Driving Off', 'When Driving Off check Brakes, Steering, Excessive Exhaust Smoke', true],
+];
+function buildTemplate(list){ return list.map((x,i)=>({id:'itm_'+i,seq:i,cat:x[0],prompt:x[1],safetyItem:x[2]})); }
+const TEMPLATES = { 'double-decker': buildTemplate(WALKAROUND_ITEMS), 'minibus': buildTemplate(WALKAROUND_ITEMS) };
+const TEMPLATE_VERSION = 3;
+
+function uid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;const v=c==='x'?r:(r&0x3|0x8);return v.toString(16)})}
+function nowISO(){return new Date().toISOString()}
+function fmt(ts){if(!ts)return '—';const d=new Date(ts);return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+function fmtTime(ts){if(!ts)return '—';const d=new Date(ts);return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function fmtDateTime(ts){if(!ts)return '';const d=new Date(ts);return d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function durationBetween(from,to){
+  if(!from) return '';
+  const a=new Date(from).getTime(); const b=to?new Date(to).getTime():Date.now();
+  const mins=Math.floor((b-a)/60000);
+  if(mins<1) return '<1m';
+  if(mins<60) return mins+'m';
+  const h=Math.floor(mins/60), m=mins%60;
+  return m?`${h}h ${m}m`:`${h}h`;
+}
+function timeAgo(ts){ if(!ts) return ''; return durationBetween(ts, null)+' ago'; }
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let DB = null;
+let activeCheck = null;
+let online = true;
+let mgrTab = 'vehicles';
+let mgrFilter = 'all'; // all | attention | in_service
+let engFilter = 'all'; // all | held | move_to_vmu | attending_yard | vor
+let scanIdx = 0;
+let waitingCheckId = null;
+let lastSubmittedId = null;
+let engineerVehicleId = null;
+let lastDriverScreen = 'pod';
+
+/* ============================================================
+   DB
+   ============================================================ */
+function seed(){
+  return {
+    drivers:[
+      {id:'D4471',name:'Dave Okafor',depot:'North'},
+      {id:'D2210',name:'Priya Shah',depot:'North'},
+      {id:'D8890',name:'Tom Reilly',depot:'North'},
+    ],
+    vehicles:[
+      {id:'v1',reg:'YT24 ABC',fleet:'412',type:'double-decker',status:'in_service'},
+      {id:'v2',reg:'YT24 DEF',fleet:'418',type:'double-decker',status:'in_service'},
+      {id:'v3',reg:'YT23 GHI',fleet:'305',type:'minibus',status:'in_service'},
+      {id:'v4',reg:'YT22 JKL',fleet:'291',type:'double-decker',status:'in_service'},
+      {id:'v5',reg:'YT24 MNO',fleet:'420',type:'minibus',status:'in_service'},
+    ],
+    devices:[{id:'TAB-07',battery:84,pod:'North Pod A'},{id:'TAB-08',battery:62,pod:'North Pod A'}],
+    checks:[], defects:[], session:null,
+  };
+}
+function loadDB(){
+  try{ const raw = localStorage.getItem(LS_KEY); if(raw){ DB = JSON.parse(raw); return; } }catch(e){}
+  DB = seed(); saveDB();
+}
+function saveDB(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }catch(e){} }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelector('main').scrollTop = 0;
+  if (['pod','vehicle','check','summary','stop','waiting','done'].includes(name)) lastDriverScreen = name;
+}
+function updateTopbar(){
+  document.getElementById('netPill').className = 'pill ' + (online?'on':'off');
+  document.getElementById('netText').textContent = online ? 'Online' : 'Offline';
+  document.getElementById('queueCount').textContent = DB.checks.filter(c=>!c.synced).length;
+  const op = document.getElementById('offlinePill');
+  if (op) op.style.display = online ? 'none' : 'inline-flex';
+}
+function goToDriverView(){
+  switch(lastDriverScreen){
+    case 'check': if(activeCheck){ if(activeCheck.idx>=activeCheck.items.length) renderSummary(); else {renderCheckItem(); showScreen('check');} } else if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    case 'summary': if(activeCheck) renderSummary(); else if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    case 'stop': if(lastSubmittedId&&DB.checks.find(c=>c.id===lastSubmittedId)){renderStopScreen();showScreen('stop');} else if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    case 'waiting': if(waitingCheckId&&DB.checks.find(c=>c.id===waitingCheckId)){renderWaiting();showScreen('waiting');} else if(lastSubmittedId&&DB.checks.find(c=>c.id===lastSubmittedId)){renderStopScreen();showScreen('stop');} else if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    case 'done': if(lastSubmittedId&&DB.checks.find(c=>c.id===lastSubmittedId)){renderDoneNil();showScreen('done');} else if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    case 'vehicle': if(DB.session){renderVehicleSelect();showScreen('vehicle');} else renderPod(); break;
+    default: renderPod();
+  }
+}
+
+/* ============================================================
+   POD
+   ============================================================ */
+function renderPod(){
+  const dev = DB.devices[0];
+  document.getElementById('podDevice').innerHTML = `<span>📱 ${dev.id}</span><span>🔋 ${dev.battery}%</span><span>🏢 ${dev.pod}</span>`;
+  document.getElementById('podDrivers').innerHTML = DB.drivers.map(d=>`<button class="btn ghost" onclick="login('${d.id}')">${d.name.split(' ')[0]}</button>`).join('');
+  showScreen('pod');
+}
+function tapCard(){ login('D4471'); }
+function login(driverId){
+  const d = DB.drivers.find(x=>x.id===driverId); if(!d) return;
+  DB.devices[0].battery = Math.max(20, DB.devices[0].battery - 2);
+  DB.session = {driverId:d.id, deviceId:DB.devices[0].id, startedAt:nowISO()};
+  saveDB(); renderVehicleSelect(); showScreen('vehicle');
+}
+function logout(){ DB.session = null; saveDB(); renderPod(); }
+function renderVehicleSelect(){
+  const d = DB.drivers.find(x=>x.id===DB.session.driverId);
+  document.getElementById('vehGreeting').textContent = 'Hi ' + d.name.split(' ')[0];
+  document.getElementById('vehSub').textContent = `${d.depot} depot · ${DB.session.deviceId} · ${d.id}`;
+}
+
+/* ============================================================
+   QR SCAN
+   ============================================================ */
+function scanVehicle(){
+  const v = DB.vehicles[scanIdx % DB.vehicles.length]; scanIdx++;
+  showScan(v);
+}
+function showScan(v){
+  const el = document.getElementById('scanOverlay');
+  el.innerHTML = `
+    <div class="scan-viewport"><div class="scan-reticle">
+      <div class="scan-corner tl"></div><div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div><div class="scan-corner br"></div>
+      <div class="scan-line"></div>
+    </div></div>
+    <div class="scan-status">Position the vehicle QR code within the frame</div>
+    <button class="btn ghost" onclick="closeScan()">Cancel</button>`;
+  el.classList.add('active');
+  setTimeout(()=>{ if(el.classList.contains('active')) renderScanResult(v); }, 1500);
+}
+function renderScanResult(v){
+  const el = document.getElementById('scanOverlay');
+  const state = getVehicleGate(v);
+  let html = '';
+  if (state.block){
+    html = `<div class="scan-result">
+        <div style="font-size:52px;margin-bottom:6px">${state.icon}</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px">${v.reg} · Bus ${v.fleet}</div>
+        <h2 style="color:${state.color}">${state.title}</h2>
+        <div class="muted" style="max-width:340px;font-size:14px">${state.msg}</div>
+      </div>
+      <div class="scan-actions">
+        <a class="btn danger" style="text-decoration:none;text-align:center;padding:14px" href="tel:${OPS_PHONE_TEL}">📞 Phone Operations — ${OPS_PHONE}</a>
+        <button class="btn ghost" onclick="scanVehicle()">Scan another vehicle</button>
+        <button class="btn ghost" onclick="closeScan()">Cancel</button>
+      </div>`;
+  } else if (state.movement){
+    const isOriginal = DB.session && DB.session.driverId === state.check.driverId;
+    html = `<div class="scan-result">
+        <div style="font-size:52px;margin-bottom:6px">🚚</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px">${v.reg} · Bus ${v.fleet}</div>
+        <h2 style="color:#93c5fd">MOVE TO VMU</h2>
+        <div class="muted" style="max-width:360px;font-size:14px">${isOriginal?'Engineer has authorised you to drive this vehicle to the VMU. Acknowledge to start the movement.':`You are not the reporting driver. Confirm you are moving this vehicle to the VMU on behalf of ${state.reporterName}.`}</div>
+      </div>
+      <div class="scan-actions">
+        <button class="btn" style="padding:16px" onclick="acknowledgeMovement('${v.id}')">Acknowledge movement</button>
+        <button class="btn ghost" onclick="closeScan()">Cancel</button>
+      </div>`;
+  } else if (state.cleared){
+    const c = state.check; const sameDriver = DB.session && DB.session.driverId === c.driverId;
+    html = `<div class="scan-result">
+        <div style="font-size:52px;margin-bottom:6px">✅</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px">${v.reg} · Bus ${v.fleet}</div>
+        <h2 style="color:#6ee7a0">CLEARED</h2>
+        <div class="muted" style="max-width:340px;font-size:14px;margin-top:4px">${c.releaseBasis} by ${c.releasedBy} at ${fmt(c.releasedAt)}</div>
+        <div class="muted" style="font-size:12px;margin-top:8px">Previous check by ${c.driverId} at ${fmt(c.submittedAt)}</div>
+      </div>
+      <div class="scan-actions">
+        ${sameDriver ? `<button class="btn success" style="padding:16px" onclick="startShiftFromCleared('${v.id}')">Start shift — no fresh check needed</button>
+           <button class="btn ghost" onclick="closeScan();startCheck('${v.id}')">Do a fresh check anyway</button>`
+         : `<button class="btn" style="padding:16px" onclick="closeScan();startCheck('${v.id}')">Start your check</button>`}
+        <button class="btn ghost" onclick="closeScan()">Cancel</button>
+      </div>`;
+  } else {
+    html = `<div class="scan-result">
+        <div style="font-size:52px;margin-bottom:6px">✅</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:1.5px">Vehicle detected</div>
+        <h2>${v.reg}</h2>
+        <div class="muted">Bus ${v.fleet} · ${v.type}</div>
+      </div>
+      <div class="scan-actions">
+        <button class="btn" style="padding:16px" onclick="closeScan();startCheck('${v.id}')">Start check</button>
+        <button class="btn ghost" onclick="scanVehicle()">Scan again</button>
+        <button class="btn ghost" onclick="closeScan()">Cancel</button>
+      </div>`;
+  }
+  el.innerHTML = html;
+}
+function getVehicleGate(v){
+  if (v.status === 'vor') return {block:true, icon:'⛔', title:'VOR — DO NOT MOVE', color:'#f87171', msg:'Vehicle off road. Phone Operations for a replacement.'};
+  if (v.status === 'held') {
+    const c = DB.checks.find(x=>x.id===v.heldCheckId);
+    return {block:true, icon:'⚠️', title:'VEHICLE HELD', color:'#fbbf24', msg:`A defect is pending engineer review (reported ${c?fmtTime(c.submittedAt):'—'}). Do not move. Phone Operations.`};
+  }
+  if (v.status === 'attending_yard') return {block:true, icon:'🔧', title:'ENGINEERS ATTENDING', color:'#fbbf24', msg:'Engineers are on their way to this vehicle. Do not use. Phone Operations for a replacement.'};
+  if (v.status === 'move_to_vmu') {
+    const c = DB.checks.find(x=>x.id===v.heldCheckId);
+    const reporter = c ? DB.drivers.find(d=>d.id===c.driverId) : null;
+    return {movement:true, check:c, reporterName:reporter?reporter.name:'—'};
+  }
+  if (v.status === 'released') {
+    const c = DB.checks.find(x=>x.id===v.heldCheckId);
+    return {cleared:true, check:c};
+  }
+  return {start:true};
+}
+function closeScan(){ document.getElementById('scanOverlay').classList.remove('active'); }
+
+function acknowledgeMovement(vehicleId){
+  const v = DB.vehicles.find(x=>x.id===vehicleId);
+  const c = DB.checks.find(x=>x.id===v.heldCheckId);
+  const isOriginal = DB.session.driverId === c.driverId;
+  c.movementAcknowledgedBy = DB.session.driverId;
+  c.movementAcknowledgedAt = nowISO();
+  if (!isOriginal) c.movementProxyFor = c.driverId;
+  c.events.push({type:'MOVEMENT_ACKNOWLEDGED', actor:DB.session.driverId, ts:nowISO(), note:isOriginal?'Original driver moving to VMU':`Proxy movement on behalf of ${c.driverId}`});
+  saveDB(); closeScan();
+  const el = document.getElementById('scanOverlay');
+  el.innerHTML = `<div class="scan-result">
+      <div style="font-size:52px;margin-bottom:12px">🚚</div>
+      <h2 style="color:#93c5fd">Movement acknowledged</h2>
+      <div class="muted" style="max-width:340px;font-size:14px">Drive to the VMU. Leave the tablet in the yard dock — the engineer will release the vehicle on their own device and hand it back to you.</div>
+    </div>
+    <div class="scan-actions"><button class="btn" style="padding:16px" onclick="closeScan();returnToPod()">Return tablet to pod</button></div>`;
+  el.classList.add('active');
+}
+function startShiftFromCleared(vehicleId){
+  const v = DB.vehicles.find(x=>x.id===vehicleId);
+  const c = DB.checks.find(x=>x.id===v.heldCheckId);
+  c.driverAcknowledgedAt = nowISO();
+  v.status = 'in_service'; saveDB(); closeScan();
+  alert(`Vehicle ${v.reg} is cleared. Have a safe shift.`);
+  renderVehicleSelect(); showScreen('vehicle');
+}
+
+/* ============================================================
+   PHOTO MODAL
+   ============================================================ */
+function showPhoto(ts, label){
+  const el = document.getElementById('photoOverlay');
+  el.innerHTML = `<div class="photo-content" onclick="event.stopPropagation()">
+    <div class="photo-placeholder">🖼</div>
+    <div class="photo-meta">${label||'Defect photo'} · captured ${fmtTime(ts)}</div>
+    <button class="btn ghost small" style="margin-top:14px" onclick="document.getElementById('photoOverlay').classList.remove('active')">Close</button>
+  </div>`;
+  el.classList.add('active');
+}
+function closePhoto(e){ if(e.target.id==='photoOverlay') e.target.classList.remove('active'); }
+
+/* ============================================================
+   CHECK FLOW
+   ============================================================ */
+function startCheck(vehicleId){
+  const v = DB.vehicles.find(x=>x.id===vehicleId);
+  const items = TEMPLATES[v.type];
+  activeCheck = {
+    checkId: uid(), driverId: DB.session.driverId, vehicleId, vehicleReg: v.reg, deviceId: DB.session.deviceId,
+    templateVersion: TEMPLATE_VERSION, startedAt: nowISO(), items, idx: 0, responses: {}, editingFromSummary: false,
+  };
+  document.getElementById('checkVehicle').textContent = `${v.reg} · Bus ${v.fleet} · ${v.type}`;
+  renderCheckItem(); showScreen('check');
+}
+function renderCheckItem(){
+  const c = activeCheck;
+  if(c.idx >= c.items.length){ renderSummary(); return; }
+  const it = c.items[c.idx];
+  document.getElementById('progressFill').style.width = Math.round((c.idx/c.items.length)*100) + '%';
+  const existing = c.responses[it.id];
+  const openMonitored = DB.defects.filter(d => d.vehicleId === c.vehicleId && d.status === 'RESOLVED_MONITORED');
+  const banner = openMonitored.length ? `<div class="card" style="border-color:#7c5a0a;background:#2a1f0a;padding:11px 14px;margin-bottom:16px">
+      <span class="badge b-amber">Monitored</span>
+      <span style="font-size:13px;margin-left:8px">${openMonitored[0].itemCat} — ${openMonitored[0].description.slice(0,60)}</span>
+    </div>` : '';
+  document.getElementById('checkBody').innerHTML = `
+    ${banner}
+    <div class="muted" style="font-size:13px">Item ${c.idx+1} of ${c.items.length}${c.editingFromSummary?' · editing':''}</div>
+    <div class="ci-cat" style="margin-top:14px">${it.cat}</div>
+    <div class="ci-prompt">${it.prompt}</div>
+    <div class="ci-hint">${it.safetyItem?'⚠ Safety-critical item':'Routine item'}</div>
+    <div class="answers">
+      <button class="ans pass ${existing&&existing.outcome==='pass'?'sel':''}" onclick="answer('pass')"><span class="ico">✓</span>PASS</button>
+      <button class="ans defect ${existing&&existing.outcome==='defect'?'sel':''}" onclick="answer('defect')"><span class="ico">!</span>DEFECT</button>
+      <button class="ans na ${existing&&existing.outcome==='na'?'sel':''}" onclick="answer('na')"><span class="ico">—</span>N/A</button>
+    </div>
+    <div id="defectForm"></div>`;
+}
+function flash(){ const f=document.getElementById('flash'); f.classList.add('on'); setTimeout(()=>f.classList.remove('on'),110); }
+function answer(outcome){
+  const c = activeCheck; const it = c.items[c.idx];
+  if(outcome==='defect'){ renderDefectForm(it, c.responses[it.id]); return; }
+  c.responses[it.id] = {itemId:it.id, cat:it.cat, outcome, note:'', photos:[]};
+  if(outcome==='pass') flash();
+  advanceAfterAnswer();
+}
+function advanceAfterAnswer(){
+  if (activeCheck.editingFromSummary){ activeCheck.editingFromSummary=false; renderSummary(); return; }
+  activeCheck.idx++; renderCheckItem();
+}
+function renderDefectForm(it, existing){
+  document.getElementById('defectForm').innerHTML = `
+    <div class="defect-panel">
+      <label class="fl">Description of defect</label>
+      <textarea id="defectNote" placeholder="Describe what you found…">${existing&&existing.note?existing.note:''}</textarea>
+      <div class="minirow">
+        <button class="btn ghost small" onclick="addPhoto()">📷 Add photo</button>
+        <button class="btn ghost small" onclick="voiceNote()">🎤 Voice note</button>
+      </div>
+      <div class="thumbs" id="thumbs">${existing&&existing.photos?existing.photos.map(p=>`<div class="thumb" onclick="showPhoto('${p.ts}','Defect photo')">🖼</div>`).join(''):''}</div>
+      <button class="btn" style="width:100%;margin-top:18px;padding:15px" onclick="saveDefect()">Save defect & continue</button>
+    </div>`;
+  activeCheck._tmp = {photos:(existing&&existing.photos)?existing.photos.slice():[]};
+}
+function addPhoto(){
+  if(activeCheck._tmp.photos.length>=3) return;
+  activeCheck._tmp.photos.push({ts:nowISO()});
+  document.getElementById('thumbs').innerHTML = activeCheck._tmp.photos.map(p=>`<div class="thumb" onclick="showPhoto('${p.ts}','Defect photo')">🖼</div>`).join('');
+}
+function voiceNote(){ const t=document.getElementById('defectNote'); t.value += (t.value?' ':'')+'[voice note 0:12]'; }
+function saveDefect(){
+  const c = activeCheck; const it = c.items[c.idx];
+  const note = document.getElementById('defectNote').value.trim();
+  if(!note){ document.getElementById('defectNote').style.borderColor='#ef4444'; return; }
+  c.responses[it.id] = {itemId:it.id, cat:it.cat, outcome:'defect', note, photos: c._tmp.photos};
+  c._tmp = null; advanceAfterAnswer();
+}
+function editItemFromSummary(itemId){
+  const idx = activeCheck.items.findIndex(it => it.id === itemId); if (idx<0) return;
+  activeCheck.idx = idx; activeCheck.editingFromSummary = true;
+  renderCheckItem(); showScreen('check');
+}
+function cancelCheck(){
+  if (activeCheck && activeCheck.editingFromSummary){ activeCheck.editingFromSummary=false; renderSummary(); return; }
+  activeCheck = null; renderVehicleSelect(); showScreen('vehicle');
+}
+
+/* ============================================================
+   SUMMARY + SUBMIT
+   ============================================================ */
+function renderSummary(){
+  const c = activeCheck;
+  const resps = c.items.map(it=>c.responses[it.id]).filter(Boolean);
+  const defects = resps.filter(r=>r.outcome==='defect');
+  document.getElementById('summarySub').textContent = `${c.vehicleReg} · ${resps.length} items · ${defects.length} defect${defects.length===1?'':'s'}`;
+  document.getElementById('summaryList').innerHTML = resps.map(r=>{
+    const badge = r.outcome==='pass' ? '<span class="badge b-green">Pass</span>' : r.outcome==='na' ? '<span class="badge b-grey">N/A</span>' : '<span class="badge b-red">Defect</span>';
+    return `<div class="srow" onclick="editItemFromSummary('${r.itemId}')"><div class="nm">${r.cat}</div>${badge}<span class="edit-ico">✎</span></div>`;
+  }).join('');
+  showScreen('summary');
+}
+function submitCheck(){
+  const c = activeCheck;
+  const resps = c.items.map(it=>c.responses[it.id]).filter(Boolean);
+  const defects = resps.filter(r=>r.outcome==='defect');
+  const submittedAt = nowISO();
+  const check = {
+    id:c.checkId, driverId:c.driverId, vehicleId:c.vehicleId, vehicleReg:c.vehicleReg, deviceId:c.deviceId,
+    templateVersion:c.templateVersion, startedAt:c.startedAt, submittedAt,
+    durationMins: Math.max(1, Math.round((new Date(submittedAt)-new Date(c.startedAt))/60000)),
+    result: defects.length ? 'defects_found' : 'nil_defect',
+    status: defects.length ? 'pending_engineer' : 'complete',
+    responses: resps, synced: false, syncedAt: null,
+    releasedBy:null, releasedAt:null, releaseBasis:null,
+    movementAuthorisedBy:null, movementAuthorisedAt:null,
+    movementAcknowledgedBy:null, movementAcknowledgedAt:null, movementProxyFor:null,
+    opsCallLoggedAt:null, driverAcknowledgedAt:null, voidedBy:null, voidedAt:null, voidReason:null,
+    events:[{type:'SUBMITTED', actor:c.driverId, ts:submittedAt, note:defects.length?`${defects.length} defect(s)`:'Nil defect'}],
+  };
+  DB.checks.push(check);
+  const v = DB.vehicles.find(x=>x.id===c.vehicleId);
+  defects.forEach(r=>{
+    DB.defects.push({id:uid(), checkId:c.checkId, vehicleId:c.vehicleId, vehicleReg:c.vehicleReg,
+      itemCat:r.cat, description:r.note, photos:r.photos, status:'REPORTED', monitored:false,
+      reportedAt:submittedAt, resolvedAt:null, resolvedBy:null,
+      events:[{type:'REPORTED', actor:c.driverId, ts:submittedAt, note:'Driver reported defect'}]});
+  });
+  if (defects.length){ v.status='held'; v.heldCheckId=check.id; } else { v.status='in_service'; v.heldCheckId=null; }
+  saveDB(); attemptSync(); lastSubmittedId = check.id; activeCheck = null; updateTopbar();
+  if (defects.length){ renderStopScreen(); showScreen('stop'); }
+  else { renderDoneNil(); showScreen('done'); }
+}
+
+/* ============================================================
+   STOP SCREEN
+   ============================================================ */
+function renderStopScreen(){
+  const check = DB.checks.find(c=>c.id===lastSubmittedId); if(!check) return;
+  const v = DB.vehicles.find(x=>x.id===check.vehicleId);
+  const defects = DB.defects.filter(d=>d.checkId===check.id);
+  const hasUpdate = v.status !== 'held';
+  const updateText = hasUpdate ? DRIVER_FACING_UPDATE[v.status] : '';
+  const updateBadge = hasUpdate ? STATUS_BADGE[v.status] : '';
+  document.getElementById('stopBody').innerHTML = `
+    <div class="stop-icon">🛑</div>
+    <h1 class="stop-title">STOP — do not take this vehicle into service</h1>
+    <p class="stop-sub">${v.reg} · Bus ${v.fleet}. ${defects.length} defect${defects.length>1?'s':''} recorded. The vehicle cannot be released until an engineer clears the defect${defects.length>1?'s':''}.</p>
+    ${hasUpdate ? `<div class="stop-card" style="border-color:#22c55e">
+        <div class="badge ${updateBadge}">Engineer has responded</div>
+        <div style="font-weight:600;margin-top:10px;font-size:15px">${updateText}</div>
+        <div class="muted" style="font-size:13px;margin-top:6px">Tap below to see what to do next.</div>
+      </div>`:''}
+    <div class="stop-card">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:10px">Defects on this vehicle</div>
+      ${defects.map(d=>`<div style="padding:8px 0;border-top:1px solid var(--line)">
+        <div style="font-weight:600">${d.itemCat}</div>
+        <div class="muted" style="font-size:13px;margin-top:3px">${d.description}</div>
+        ${d.photos.length?`<div class="thumbs">${d.photos.map(p=>`<div class="thumb" onclick="event.stopPropagation();showPhoto('${p.ts}','${d.itemCat}')">🖼</div>`).join('')}</div>`:''}
+      </div>`).join('')}
+    </div>
+    <div class="ops-call">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)">Phone Operations now</div>
+      <div class="ops-number">${OPS_PHONE}</div>
+      <a class="btn danger" style="display:block;text-align:center;text-decoration:none;padding:14px" href="tel:${OPS_PHONE_TEL}" onclick="logOpsCall('${check.id}');return true;">📞 Call Operations</a>
+      <button class="btn ghost" style="width:100%;margin-top:10px;padding:12px" onclick="logOpsSpoken('${check.id}')" id="opsSpokenBtn" ${check.opsCallLoggedAt?'':'style="display:none;width:100%;margin-top:10px;padding:12px"'}>✓ I've spoken to Operations</button>
+      ${check.opsCallLoggedAt?`<div class="muted" style="font-size:12px;margin-top:10px;text-align:center">Call logged at ${fmtTime(check.opsCallLoggedAt)}</div>`:''}
+    </div>
+    <div class="stop-actions">
+      <button class="btn ghost" style="padding:14px" onclick="driverScanAnother('${check.id}')">Scan another vehicle</button>
+      <button class="btn ${hasUpdate?'success':''}" style="padding:14px" onclick="startWaiting('${check.id}')">${hasUpdate?'See engineer instructions →':'Wait for engineer release'}</button>
+    </div>`;
+}
+function logOpsCall(checkId){
+  const c = DB.checks.find(x=>x.id===checkId);
+  if (!c.opsCallLoggedAt){ c.opsCallLoggedAt = nowISO(); c.events.push({type:'OPS_CALLED', actor:c.driverId, ts:nowISO(), note:'Driver called Operations'}); saveDB(); }
+  setTimeout(()=>{ const b=document.getElementById('opsSpokenBtn'); if(b) b.style.display='block'; }, 800);
+}
+function logOpsSpoken(checkId){
+  const c = DB.checks.find(x=>x.id===checkId);
+  c.events.push({type:'OPS_SPOKEN', actor:c.driverId, ts:nowISO(), note:'Driver spoke to Operations'});
+  saveDB(); renderStopScreen();
+}
+function driverScanAnother(checkId){
+  const c = DB.checks.find(x=>x.id===checkId);
+  c.events.push({type:'DRIVER_DEPARTED', actor:c.driverId, ts:nowISO(), note:'Driver elected to find another vehicle'});
+  saveDB(); renderVehicleSelect(); showScreen('vehicle');
+}
+function startWaiting(checkId){ waitingCheckId=checkId; renderWaiting(); showScreen('waiting'); }
+
+/* ============================================================
+   WAITING SCREEN
+   ============================================================ */
+function renderWaiting(){
+  const check = DB.checks.find(c=>c.id===waitingCheckId); if (!check) return;
+  const v = DB.vehicles.find(x=>x.id===check.vehicleId);
+  const defects = DB.defects.filter(d=>d.checkId===check.id);
+  let body = '';
+  if (check.status === 'complete'){
+    body = `<div class="waiting-icon" style="animation:none">✅</div>
+      <h1 class="waiting-title" style="color:#6ee7a0">CLEARED — vehicle released</h1>
+      <p class="waiting-sub">${check.releaseBasis} by ${check.releasedBy} at ${fmt(check.releasedAt)}</p>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Vehicle</span><span>${v.reg} · Bus ${v.fleet}</span></div>
+        <div class="status-row"><span class="status-label">Previous check</span><span>${check.driverId} at ${fmtTime(check.submittedAt)}</span></div>
+        <div class="status-row"><span class="status-label">Released</span><span>${check.releasedBy} at ${fmtTime(check.releasedAt)}</span></div>
+      </div>
+      <div class="stop-actions"><button class="btn success" style="padding:16px" onclick="acknowledgeStartShift()">Confirm — start shift</button></div>`;
+  } else if (check.status === 'void'){
+    body = `<div class="waiting-icon" style="animation:none">⛔</div>
+      <h1 class="waiting-title" style="color:#fca5a5">VOR — workshop required</h1>
+      <p class="waiting-sub">The engineer has sent this vehicle to the workshop. A fresh check will be required after repair.</p>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Vehicle</span><span>${v.reg} · Bus ${v.fleet}</span></div>
+        <div class="status-row"><span class="status-label">Reason</span><span>${check.voidReason||'Sent to workshop'}</span></div>
+        <div class="status-row"><span class="status-label">Voided</span><span>${fmt(check.voidedAt)}</span></div>
+      </div>
+      <div class="stop-actions">
+        <a class="btn danger" style="text-decoration:none;text-align:center;padding:14px" href="tel:${OPS_PHONE_TEL}">📞 Phone Operations — ${OPS_PHONE}</a>
+        <button class="btn ghost" style="padding:14px" onclick="driverScanAnother('${check.id}')">Scan another vehicle</button>
+      </div>`;
+  } else if (v.status === 'move_to_vmu'){
+    body = `<div class="waiting-icon">🚚</div>
+      <h1 class="waiting-title">AUTHORISED — drive to VMU</h1>
+      <p class="waiting-sub">The engineer has authorised you to move this vehicle to the Vehicle Maintenance Unit.</p>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Vehicle</span><span>${v.reg} · Bus ${v.fleet}</span></div>
+        <div class="status-row"><span class="status-label">Authorised</span><span>${fmt(check.movementAuthorisedAt)}</span></div>
+        <div class="status-row"><span class="status-label">Movement</span><span>${check.movementAcknowledgedAt?'Acknowledged '+fmtTime(check.movementAcknowledgedAt):'Not yet acknowledged'}</span></div>
+      </div>
+      <div class="stop-actions">
+        ${check.movementAcknowledgedAt
+          ? `<div class="muted" style="font-size:13px;text-align:center">Movement acknowledged. Leave the tablet in the yard dock — the engineer will release the vehicle on their device and hand it back.</div>
+             <button class="btn ghost" style="padding:14px;margin-top:10px" onclick="returnToPod()">Return tablet to pod</button>`
+          : `<button class="btn" style="padding:16px" onclick="acknowledgeMovementWaiting('${v.id}')">Acknowledge — start movement</button>`}
+      </div>`;
+  } else if (v.status === 'attending_yard'){
+    body = `<div class="waiting-icon">🔧</div>
+      <h1 class="waiting-title" style="color:#fbbf24">ENGINEERS ON THEIR WAY</h1>
+      <p class="waiting-sub">Engineers are heading to the yard. Wait with the vehicle. Do not move it.</p>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Vehicle</span><span>${v.reg} · Bus ${v.fleet}</span></div>
+        <div class="status-row"><span class="status-label">Status</span><span>Engineers attending</span></div>
+      </div>
+      <div class="stop-actions">
+        <a class="btn ghost" style="text-decoration:none;text-align:center;padding:14px" href="tel:${OPS_PHONE_TEL}">📞 Phone Operations — ${OPS_PHONE}</a>
+        <button class="btn ghost" style="padding:14px" onclick="driverScanAnother('${check.id}')">Find another vehicle</button>
+      </div>`;
+  } else {
+    body = `<div class="waiting-icon">⏳</div>
+      <h1 class="waiting-title">AWAITING ENGINEER RELEASE</h1>
+      <p class="waiting-sub">${v.reg} · Bus ${v.fleet}. ${defects.length} defect${defects.length>1?'s':''} pending. The vehicle cannot be released until an engineer clears ${defects.length>1?'them':'it'}.</p>
+      <div class="status-card">
+        <div class="status-row"><span class="status-label">Vehicle</span><span>${v.reg} · Bus ${v.fleet}</span></div>
+        ${defects.map(d=>`<div class="status-row"><span class="status-label">Defect</span><span>${d.itemCat}</span></div>`).join('')}
+        <div class="status-row"><span class="status-label">Reported</span><span>${fmtTime(check.submittedAt)}</span></div>
+        <div class="status-row"><span class="status-label">Operations call</span><span>${check.opsCallLoggedAt?fmtTime(check.opsCallLoggedAt):'Not logged'}</span></div>
+      </div>
+      <div class="stop-actions">
+        <a class="btn ghost" style="text-decoration:none;text-align:center;padding:14px" href="tel:${OPS_PHONE_TEL}">📞 Phone Operations — ${OPS_PHONE}</a>
+        <button class="btn ghost" style="padding:14px" onclick="driverScanAnother('${check.id}')">Find another vehicle</button>
+      </div>`;
+  }
+  document.getElementById('waitingBody').innerHTML = body;
+}
+function acknowledgeMovementWaiting(vehicleId){ acknowledgeMovement(vehicleId); waitingCheckId=null; }
+function acknowledgeStartShift(){
+  const c = DB.checks.find(x=>x.id===waitingCheckId);
+  const v = DB.vehicles.find(x=>x.id===c.vehicleId);
+  c.driverAcknowledgedAt = nowISO();
+  c.events.push({type:'DRIVER_STARTED_SHIFT', actor:c.driverId, ts:nowISO(), note:'Driver acknowledged release and started shift'});
+  v.status = 'in_service'; waitingCheckId = null; saveDB();
+  alert(`Vehicle ${v.reg} cleared. Have a safe shift.`);
+  renderVehicleSelect(); showScreen('vehicle');
+}
+
+/* ============================================================
+   DONE (nil defect)
+   ============================================================ */
+function renderDoneNil(){
+  const check = DB.checks.find(c=>c.id===lastSubmittedId);
+  document.getElementById('doneIcon').textContent = '✅';
+  document.getElementById('doneTitle').textContent = 'Check complete';
+  document.getElementById('doneSub').textContent = 'Nil defect. Have a safe shift.';
+  document.getElementById('doneSync').innerHTML = `
+    <div class="srow"><div class="nm">Check ID</div><span class="mono">${check.id.slice(0,8)}</span></div>
+    <div class="srow"><div class="nm">Completed in</div><span>${check.durationMins}m</span></div>
+    <div class="srow"><div class="nm">Recorded</div><span>${fmt(check.submittedAt)}</span></div>
+    <div class="srow"><div class="nm">Sync</div>${check.synced?'<span class="badge b-green">Synced</span>':'<span class="badge b-amber">Queued</span>'}</div>`;
+}
+function returnToPod(){ activeCheck=null; waitingCheckId=null; renderPod(); }
+
+/* ============================================================
+   SYNC
+   ============================================================ */
+function attemptSync(){
+  if(!online) return;
+  let changed = false;
+  DB.checks.forEach(c=>{ if(!c.synced){ c.synced = true; c.syncedAt = nowISO(); changed = true; } });
+  if(changed) saveDB();
+  updateTopbar();
+}
+function toggleNet(){
+  online = !online; if(online) attemptSync(); updateTopbar();
+  if (document.getElementById('screen-check').classList.contains('active')) renderCheckItem();
+}
+function showQueue(){
+  const n = DB.checks.filter(c=>!c.synced).length;
+  alert(n ? `${n} check(s) waiting to sync.` : 'Nothing queued. All checks synced.');
+}
+
+/* ============================================================
+   MANAGER
+   ============================================================ */
+function openManager(){ mgrTab='vehicles'; mgrFilter='all'; renderManager(); showScreen('manager'); }
+function backToPod(){ renderPod(); }
+function setMgrTab(t){ mgrTab=t; renderManager(); }
+function setMgrFilter(f){ mgrFilter=f; renderManager(); }
+
+function renderManager(){
+  document.querySelectorAll('#screen-manager .tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===mgrTab));
+  renderMgrKpis();
+  const body = document.getElementById('managerBody');
+  if(mgrTab==='vehicles') body.innerHTML = mgrVehicles();
+  else if(mgrTab==='defects') body.innerHTML = mgrDefects();
+  else if(mgrTab==='timeline') body.innerHTML = mgrTimeline();
+  else if(mgrTab==='export') body.innerHTML = mgrExport();
+}
+
+function renderMgrKpis(){
+  const inService = DB.vehicles.filter(v=>v.status==='in_service').length;
+  const held = DB.vehicles.filter(v=>['held','attending_yard','move_to_vmu'].includes(v.status)).length;
+  const vor = DB.vehicles.filter(v=>v.status==='vor').length;
+  const openDefects = DB.defects.filter(d=>d.status==='REPORTED').length;
+  document.getElementById('managerKpis').innerHTML = `
+    <div class="kpi-strip">
+      <div class="kpi-box"><div class="kpi-num" style="color:#4ade80">${inService}</div><div class="kpi-label">In service</div></div>
+      <div class="kpi-box"><div class="kpi-num" style="color:#fbbf24">${held}</div><div class="kpi-label">Held / Attending</div></div>
+      <div class="kpi-box"><div class="kpi-num" style="color:#f87171">${vor}</div><div class="kpi-label">VOR</div></div>
+      <div class="kpi-box"><div class="kpi-num" style="color:#38bdf8">${openDefects}</div><div class="kpi-label">Open defects</div></div>
+    </div>`;
+}
+
+function mgrVehicles(){
+  const filterTabs = `
+    <div class="tabs" style="margin-bottom:14px">
+      <button class="tab ${mgrFilter==='all'?'active':''}" onclick="setMgrFilter('all')">All (${DB.vehicles.length})</button>
+      <button class="tab ${mgrFilter==='attention'?'active':''}" onclick="setMgrFilter('attention')">Attention needed (${DB.vehicles.filter(v=>['vor','held','attending_yard','move_to_vmu'].includes(v.status)).length})</button>
+      <button class="tab ${mgrFilter==='in_service'?'active':''}" onclick="setMgrFilter('in_service')">In service (${DB.vehicles.filter(v=>['in_service','released'].includes(v.status)).length})</button>
+    </div>`;
+
+  let list = [...DB.vehicles];
+  if (mgrFilter === 'attention') list = list.filter(v => ['vor','held','attending_yard','move_to_vmu'].includes(v.status));
+  if (mgrFilter === 'in_service') list = list.filter(v => ['in_service','released'].includes(v.status));
+  list.sort((a,b)=>(STATUS_PRIORITY[a.status]||9) - (STATUS_PRIORITY[b.status]||9));
+
+  if (!list.length) return filterTabs + '<div class="empty">No vehicles match this filter.</div>';
+
+  return filterTabs + list.map(v=>{
+    const last = DB.checks.filter(c=>c.vehicleId===v.id).sort((a,b)=>a.submittedAt<b.submittedAt?1:-1)[0];
+    const openCount = DB.defects.filter(d=>d.vehicleId===v.id && d.status==='REPORTED').length;
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div style="font-weight:700">${v.reg} <span class="muted" style="font-weight:400">· Bus ${v.fleet}</span></div>
+          <div class="muted" style="font-size:13px">${v.type} · Last check: ${last?fmt(last.submittedAt):'—'}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <span class="badge ${STATUS_BADGE[v.status]||'b-grey'}">${STATUS_LABEL[v.status]||v.status}</span>
+          ${openCount?`<span class="badge b-red">${openCount} open</span>`:''}
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn ghost small" onclick="window._tlVehicle='${v.id}';setMgrTab('timeline')">View timeline →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function mgrDefects(){
+  const list = DB.defects.slice().sort((a,b)=>{
+    // open first, then by reported date desc
+    const oa = a.status==='REPORTED' ? 0 : 1;
+    const ob = b.status==='REPORTED' ? 0 : 1;
+    if (oa !== ob) return oa - ob;
+    return a.reportedAt < b.reportedAt ? 1 : -1;
+  });
+  if(!list.length) return '<div class="empty">No defects recorded yet.</div>';
+  return list.map(d=>{
+    const badge = d.status==='REPORTED'?'b-red':d.status==='RESOLVED_VOR'?'b-red':d.status==='RESOLVED_MONITORED'?'b-amber':'b-green';
+    const label = d.status==='REPORTED'?'Reported':d.status==='RESOLVED_RECTIFIED'?'Rectified':d.status==='RESOLVED_MONITORED'?'Monitored':d.status==='RESOLVED_NO_FAULT'?'No fault':d.status==='RESOLVED_VOR'?'VOR':'Resolved';
+    const totalOpen = durationBetween(d.reportedAt, d.resolvedAt);
+    const photoHtml = d.photos.length ? `<div class="thumbs">${d.photos.map(p=>`<div class="thumb" onclick="event.stopPropagation();showPhoto('${p.ts}','${d.itemCat}')">🖼</div>`).join('')}</div>` : '';
+    // Events with delta column
+    let prevTs = null;
+    const eventHtml = d.events.map(e=>{
+      const delta = prevTs ? durationBetween(prevTs, e.ts) : '';
+      prevTs = e.ts;
+      return `<div class="tl-item ${e.type==='REPORTED'?'defect':'good'}">
+        <div class="tl-head">
+          <span class="tl-time">${fmt(e.ts)}</span>
+          <span class="tl-delta">${delta?'+'+delta:''}</span>
+        </div>
+        <div class="tl-text" style="padding-left:0;margin-top:2px">${e.type.replace(/_/g,' ')} — ${e.actor}${e.note?' · '+e.note:''}</div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:700">${d.vehicleReg} <span class="muted" style="font-weight:400">· ${d.itemCat}</span></div>
+          <div class="muted" style="font-size:13px;margin-top:2px">${d.description}</div>
+          <div class="muted" style="font-size:12px;margin-top:4px">Reported ${fmt(d.reportedAt)}${d.resolvedAt?' · '+totalOpen+' total':` · open ${timeAgo(d.reportedAt)}`}</div>
+        </div>
+        <span class="badge ${badge}">${label}</span>
+      </div>
+      ${photoHtml}
+      <details style="margin-top:12px" ${d.status==='REPORTED'?'open':''}>
+        <summary class="muted" style="font-size:13px;cursor:pointer">Audit events (${d.events.length})</summary>
+        <div class="tl" style="margin-top:12px">${eventHtml}</div>
+      </details>
+    </div>`;
+  }).join('');
+}
+
+function mgrTimeline(){
+  const opts = DB.vehicles.map(v=>`<option value="${v.id}" ${window._tlVehicle===v.id?'selected':''}>${v.reg} · Bus ${v.fleet}</option>`).join('');
+  const sel = window._tlVehicle || DB.vehicles[0].id;
+  const events = [];
+  DB.checks.filter(c=>c.vehicleId===sel).forEach(c=>{
+    events.push({ts:c.submittedAt, kind:'check', text:`Check by ${c.driverId} — ${c.result==='nil_defect'?'nil defect':c.responses.filter(r=>r.outcome==='defect').length+' defect(s)'} [${c.status}]`});
+    c.events.forEach(e=>{ if(e.type!=='SUBMITTED') events.push({ts:e.ts, kind:'eng', text:`${e.type.replace(/_/g,' ')} — ${e.actor}${e.note?' · '+e.note:''}`}); });
+  });
+  DB.defects.filter(d=>d.vehicleId===sel).forEach(d=>{
+    d.events.forEach(e=>{
+      events.push({ts:e.ts, kind:e.type==='REPORTED'?'defect':'good', text:`${d.itemCat} — ${e.type.replace(/_/g,' ')} by ${e.actor}`});
+    });
+  });
+  events.sort((a,b)=>a.ts<b.ts?-1:1);
+  return `
+    <div class="card">
+      <label class="fl" style="margin-top:0">Vehicle</label>
+      <select onchange="window._tlVehicle=this.value;setMgrTab('timeline')" style="width:100%;padding:12px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);color:var(--text);font-family:inherit;font-size:15px">${opts}</select>
+    </div>
+    ${events.length?`<div class="card"><div class="tl">
+      ${events.map(e=>`<div class="tl-item ${e.kind}">
+        <div class="tl-time">${fmt(e.ts)}</div>
+        <div class="tl-text" style="padding-left:0;margin-top:2px">${e.text}</div>
+      </div>`).join('')}
+    </div></div>`:'<div class="empty">No events for this vehicle yet.</div>'}`;
+}
+
+function mgrExport(){
+  return `
+    <div class="card">
+      <h2>Printable operations report</h2>
+      <p class="muted" style="font-size:13px">A formatted, print-ready report — perfect for managers, auditors, or DVSA visits. Opens in a new window; use your browser's Print / Save as PDF option.</p>
+      <button class="btn" style="margin-top:12px;padding:14px;width:100%" onclick="openPrintReport()">🖨 Open printable report</button>
+    </div>
+    <div class="card">
+      <h2>CSV data exports</h2>
+      <p class="muted" style="font-size:13px">Clean, human-readable CSVs with proper dates (DD/MM/YYYY HH:MM).</p>
+      <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn small" onclick="exportChecksCSV()">Checks</button>
+        <button class="btn small" onclick="exportDefectsCSV()">Defects</button>
+        <button class="btn small ghost" onclick="exportEventsCSV()">Defect events</button>
+        <button class="btn small ghost" onclick="exportJSON()">Full JSON backup</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Retention</h2>
+      <div class="srow"><div class="nm">Checks retained</div><span>${DB.checks.length}</span></div>
+      <div class="srow"><div class="nm">Defects retained</div><span>${DB.defects.length}</span></div>
+      <div class="srow"><div class="nm">Unsynced checks</div><span>${DB.checks.filter(c=>!c.synced).length}</span></div>
+      <div class="srow"><div class="nm">Retention period</div><span>15 months</span></div>
+    </div>
+    <div class="card">
+      <h2>Demo</h2>
+      <button class="btn small ghost" onclick="resetDemo()">Reset demo data</button>
+    </div>`;
+}
+
+/* ============================================================
+   PRINTABLE REPORT
+   ============================================================ */
+function openPrintReport(){
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups to view the report.'); return; }
+  w.document.open();
+  w.document.write(buildReportHTML());
+  w.document.close();
+}
+
+function buildReportHTML(){
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+
+  const inService = DB.vehicles.filter(v=>v.status==='in_service').length;
+  const held = DB.vehicles.filter(v=>['held','attending_yard','move_to_vmu'].includes(v.status)).length;
+  const vor = DB.vehicles.filter(v=>v.status==='vor').length;
+  const openDefects = DB.defects.filter(d=>d.status==='REPORTED').length;
+  const closedDefects = DB.defects.filter(d=>d.status!=='REPORTED').length;
+
+  const vehiclesSorted = [...DB.vehicles].sort((a,b)=>(STATUS_PRIORITY[a.status]||9)-(STATUS_PRIORITY[b.status]||9));
+
+  const vehicleRows = vehiclesSorted.map(v=>{
+    const last = DB.checks.filter(c=>c.vehicleId===v.id).sort((a,b)=>a.submittedAt<b.submittedAt?1:-1)[0];
+    const badgeClass = v.status==='in_service'?'b-green':v.status==='vor'?'b-red':v.status==='released'?'b-green':'b-amber';
+    return `<tr>
+      <td><strong>${v.reg}</strong></td>
+      <td>Bus ${v.fleet}</td>
+      <td>${v.type}</td>
+      <td><span class="badge ${badgeClass}">${STATUS_LABEL[v.status]}</span></td>
+      <td>${last?fmtDateTime(last.submittedAt):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  function renderDefectBlock(d){
+    const totalOpen = durationBetween(d.reportedAt, d.resolvedAt);
+    let prevTs = null;
+    const eventRows = d.events.map(e=>{
+      const delta = prevTs ? '+'+durationBetween(prevTs, e.ts) : '—';
+      prevTs = e.ts;
+      return `<div class="event-row"><span class="event-time">${fmtDateTime(e.ts)}</span><span class="event-delta">${delta}</span><span>${e.type.replace(/_/g,' ')} · ${e.actor}${e.note?' — '+e.note:''}</span></div>`;
+    }).join('');
+    return `<div class="defect-card">
+      <div class="defect-head">
+        <div>
+          <div class="defect-vehicle">${d.vehicleReg} · ${d.itemCat}</div>
+          <div class="defect-desc">${d.description}</div>
+          <div style="font-size:11px;color:#666">Reported ${fmtDateTime(d.reportedAt)}${d.resolvedAt?' · resolved in '+totalOpen:' · open for '+durationBetween(d.reportedAt, null)}</div>
+        </div>
+        <span class="badge ${d.status==='REPORTED'?'b-red':d.status==='RESOLVED_MONITORED'?'b-amber':'b-green'}">${d.status==='REPORTED'?'Open':d.status.replace('RESOLVED_','')}</span>
+      </div>
+      <div class="event-list">${eventRows}</div>
+    </div>`;
+  }
+
+  const openDefectHtml = DB.defects.filter(d=>d.status==='REPORTED').map(renderDefectBlock).join('') || '<p style="color:#666;font-size:12px">No open defects.</p>';
+  const closedDefectHtml = DB.defects.filter(d=>d.status!=='REPORTED').slice(0, 20).map(renderDefectBlock).join('') || '<p style="color:#666;font-size:12px">No closed defects.</p>';
+
+  const checksSorted = [...DB.checks].sort((a,b)=>a.submittedAt<b.submittedAt?1:-1).slice(0, 30);
+  const checkRows = checksSorted.map(c=>{
+    const v = DB.vehicles.find(x=>x.id===c.vehicleId);
+    const defectCount = c.responses.filter(r=>r.outcome==='defect').length;
+    const badgeClass = c.status==='complete'?'b-green':c.status==='void'?'b-red':'b-amber';
+    return `<tr>
+      <td>${fmtDateTime(c.submittedAt)}</td>
+      <td>${c.vehicleReg}</td>
+      <td>${c.driverId}</td>
+      <td>${c.result==='nil_defect'?'Nil defect':defectCount+' defect(s)'}</td>
+      <td><span class="badge ${badgeClass}">${c.status}</span></td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <title>Walkaround Operations Report — ${dateStr}</title>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;background:#fff;margin:0;padding:40px;font-size:13px;line-height:1.5}
+      .report-header{border-bottom:3px solid #38bdf8;padding-bottom:20px;margin-bottom:30px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px}
+      .report-title{font-size:26px;font-weight:700;margin:0 0 4px;letter-spacing:-.5px}
+      .report-title span{color:#38bdf8}
+      .report-sub{color:#666;font-size:13px;margin:0}
+      .report-meta{text-align:right;color:#666;font-size:12px}
+      .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:34px}
+      .kpi{border:1px solid #e5e7eb;border-radius:10px;padding:18px;background:#f9fafb}
+      .kpi-num{font-size:30px;font-weight:700;color:#111;line-height:1}
+      .kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#666;margin-top:8px;font-weight:600}
+      .section{margin-bottom:36px;page-break-inside:avoid}
+      .section-title{font-size:16px;font-weight:700;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#111}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{text-align:left;padding:10px 8px;border-bottom:2px solid #e5e7eb;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#666;font-weight:600}
+      td{padding:9px 8px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+      .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+      .b-green{background:#d1fae5;color:#065f46}
+      .b-red{background:#fee2e2;color:#991b1b}
+      .b-amber{background:#fef3c7;color:#92400e}
+      .b-blue{background:#dbeafe;color:#1e40af}
+      .defect-card{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fafbfc;page-break-inside:avoid}
+      .defect-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:10px}
+      .defect-vehicle{font-weight:700;font-size:13px;margin-bottom:3px}
+      .defect-desc{color:#333;font-size:12px;margin-bottom:6px}
+      .event-list{border-top:1px solid #e5e7eb;padding-top:8px;margin-top:8px}
+      .event-row{display:flex;gap:14px;padding:4px 0;font-size:11px;color:#333}
+      .event-time{color:#666;font-family:ui-monospace,monospace;min-width:130px}
+      .event-delta{color:#0284c7;font-weight:600;min-width:45px}
+      .report-footer{margin-top:44px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:11px;color:#666;text-align:center}
+      .print-btn{position:fixed;top:20px;right:20px;background:#38bdf8;color:#08111f;border:0;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 20px #38bdf840}
+      @media print{.print-btn{display:none}body{padding:20px}.section{page-break-inside:avoid}.defect-card{page-break-inside:avoid}}
+    </style>
+  </head><body>
+    <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <div class="report-header">
+      <div>
+        <div class="report-title">Walkaround <span>Operations Report</span></div>
+        <div class="report-sub">Depot compliance & vehicle status summary</div>
+      </div>
+      <div class="report-meta">
+        <div>${dateStr}</div>
+        <div>Generated ${timeStr}</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-num" style="color:#059669">${inService}</div><div class="kpi-label">In service</div></div>
+      <div class="kpi"><div class="kpi-num" style="color:#d97706">${held}</div><div class="kpi-label">Held / Attending</div></div>
+      <div class="kpi"><div class="kpi-num" style="color:#dc2626">${vor}</div><div class="kpi-label">VOR</div></div>
+      <div class="kpi"><div class="kpi-num" style="color:#0284c7">${openDefects}</div><div class="kpi-label">Open defects</div></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Vehicle status (${DB.vehicles.length} vehicles)</h2>
+      <table><thead><tr><th>Registration</th><th>Fleet</th><th>Type</th><th>Status</th><th>Last check</th></tr></thead>
+      <tbody>${vehicleRows}</tbody></table>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Open defects (${openDefects})</h2>
+      ${openDefectHtml}
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Resolved defects (${closedDefects}${closedDefects>20?' · showing latest 20':''})</h2>
+      ${closedDefectHtml}
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Recent checks (${checksSorted.length})</h2>
+      <table><thead><tr><th>Date</th><th>Vehicle</th><th>Driver</th><th>Result</th><th>Status</th></tr></thead>
+      <tbody>${checkRows || '<tr><td colspan="5" style="text-align:center;color:#999">No checks recorded</td></tr>'}</tbody></table>
+    </div>
+
+    <div class="report-footer">
+      Walkaround Operations Report · Generated ${dateStr} ${timeStr} · Retained for 15 months per operator policy
+    </div>
+  </body></html>`;
+}
+
+/* ============================================================
+   CSV EXPORTS
+   ============================================================ */
+function download(name, content, mime){
+  const blob = new Blob([content], {type:mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function escapeCSV(v){ return '"' + String(v==null?'':v).replace(/"/g,'""') + '"'; }
+
+function exportChecksCSV(){
+  const rows = [['Check ID','Date','Time','Vehicle','Fleet','Driver','Duration','Result','Status','Released By','Released At','Sync']];
+  [...DB.checks].sort((a,b)=>a.submittedAt<b.submittedAt?1:-1).forEach(c=>{
+    const v = DB.vehicles.find(x=>x.id===c.vehicleId);
+    const d = new Date(c.submittedAt);
+    rows.push([
+      c.id.slice(0,8),
+      d.toLocaleDateString('en-GB'),
+      d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+      c.vehicleReg, v?v.fleet:'', c.driverId,
+      (c.durationMins||'')+' min',
+      c.result==='nil_defect'?'Nil defect':c.responses.filter(r=>r.outcome==='defect').length+' defect(s)',
+      c.status, c.releasedBy||'', c.releasedAt?fmtDateTime(c.releasedAt):'',
+      c.synced?'Yes':'Pending',
+    ]);
+  });
+  download('walkaround_checks.csv', rows.map(r=>r.map(escapeCSV).join(',')).join('\n'), 'text/csv');
+}
+function exportDefectsCSV(){
+  const rows = [['Defect ID','Date Reported','Time','Vehicle','Item','Description','Status','Duration','Resolved By','Resolved At']];
+  [...DB.defects].sort((a,b)=>a.reportedAt<b.reportedAt?1:-1).forEach(d=>{
+    const dr = new Date(d.reportedAt);
+    rows.push([
+      d.id.slice(0,8),
+      dr.toLocaleDateString('en-GB'),
+      dr.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+      d.vehicleReg, d.itemCat, d.description, d.status,
+      d.resolvedAt ? durationBetween(d.reportedAt, d.resolvedAt) : 'Open ('+durationBetween(d.reportedAt,null)+')',
+      d.resolvedBy||'', d.resolvedAt?fmtDateTime(d.resolvedAt):'',
+    ]);
+  });
+  download('walkaround_defects.csv', rows.map(r=>r.map(escapeCSV).join(',')).join('\n'), 'text/csv');
+}
+function exportEventsCSV(){
+  const rows = [['Defect ID','Vehicle','Item','Event Timestamp','Time Since Report','Event','Actor','Note']];
+  [...DB.defects].sort((a,b)=>a.reportedAt<b.reportedAt?1:-1).forEach(d=>{
+    d.events.forEach(e=>{
+      const dt = new Date(e.ts);
+      const delta = e.ts === d.reportedAt ? '0m' : durationBetween(d.reportedAt, e.ts);
+      rows.push([
+        d.id.slice(0,8), d.vehicleReg, d.itemCat,
+        dt.toLocaleDateString('en-GB')+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+        delta, e.type.replace(/_/g,' '), e.actor, e.note||'',
+      ]);
+    });
+  });
+  download('walkaround_defect_events.csv', rows.map(r=>r.map(escapeCSV).join(',')).join('\n'), 'text/csv');
+}
+function exportJSON(){ download('walkaround_backup.json', JSON.stringify(DB,null,2), 'application/json'); }
+
+function resetDemo(){
+  if(!confirm('Reset all demo data?')) return;
+  localStorage.removeItem(LS_KEY);
+  DB = seed(); saveDB();
+  activeCheck=null; waitingCheckId=null; lastSubmittedId=null; lastDriverScreen='pod'; engineerVehicleId=null;
+  updateTopbar(); renderPod();
+}
+
+/* ============================================================
+   ENGINEER CONSOLE (accordion)
+   ============================================================ */
+function openEngineer(){ engineerVehicleId=null; engFilter='all'; renderEngineer(); showScreen('engineer'); }
+function setEngFilter(f){ engFilter=f; renderEngineer(); }
+function toggleEngCard(id){ engineerVehicleId = (engineerVehicleId === id) ? null : id; renderEngineer(); }
+
+function renderEngineer(){
+  const body = document.getElementById('engineerBody');
+  const tabs = document.getElementById('engFilterTabs');
+  const allActive = DB.vehicles.filter(v=>['held','move_to_vmu','attending_yard','vor'].includes(v.status));
+
+  // Filter tabs
+  const counts = {
+    all: allActive.length,
+    held: allActive.filter(v=>v.status==='held').length,
+    move_to_vmu: allActive.filter(v=>v.status==='move_to_vmu').length,
+    attending_yard: allActive.filter(v=>v.status==='attending_yard').length,
+    vor: allActive.filter(v=>v.status==='vor').length,
+  };
+  const tabData = [
+    ['all','All',counts.all],
+    ['held','Held',counts.held],
+    ['move_to_vmu','Move to VMU',counts.move_to_vmu],
+    ['attending_yard','Attending',counts.attending_yard],
+    ['vor','VOR',counts.vor],
+  ];
+  tabs.innerHTML = tabData.map(([k,l,c])=>`<button class="tab ${engFilter===k?'active':''}" onclick="setEngFilter('${k}')">${l} (${c})</button>`).join('');
+
+  let list = engFilter === 'all' ? allActive : allActive.filter(v=>v.status===engFilter);
+  // Sort oldest first (longest held at top)
+  list.sort((a,b)=>{
+    const ca = DB.checks.find(c=>c.id===a.heldCheckId);
+    const cb = DB.checks.find(c=>c.id===b.heldCheckId);
+    const ta = ca?.submittedAt || '';
+    const tb = cb?.submittedAt || '';
+    if (ta && tb) return ta < tb ? -1 : 1;
+    return 0;
+  });
+
+  if (!list.length){
+    body.innerHTML = `<div class="empty">No vehicles ${engFilter==='all'?'awaiting engineer action':`with status "${engFilter.replace(/_/g,' ')}"`}.<br><span style="font-size:12px">Submit a check with a defect to populate this queue.</span></div>`;
+    return;
+  }
+
+  body.innerHTML = list.map(v=>{
+    const check = DB.checks.find(c=>c.id===v.heldCheckId);
+    const defects = check ? DB.defects.filter(d=>d.checkId===check.id) : [];
+    const isExpanded = engineerVehicleId === v.id;
+    const heldFor = check ? timeAgo(check.submittedAt) : '';
+    return `<div class="eng-card ${isExpanded?'expanded':''}">
+      <div class="eng-head" onclick="toggleEngCard('${v.id}')">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div style="font-weight:700">${v.reg} <span class="muted" style="font-weight:400">· Bus ${v.fleet}</span></div>
+            <div class="muted" style="font-size:13px;margin-top:2px">${defects.length} defect${defects.length===1?'':'s'}${heldFor?' · held '+heldFor:''}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="badge ${STATUS_BADGE[v.status]}">${STATUS_LABEL[v.status]}</span>
+            <span class="muted">${isExpanded?'▾':'▸'}</span>
+          </div>
+        </div>
+      </div>
+      ${isExpanded ? `<div class="eng-body"><div class="eng-body-pad">
+        ${defects.length?`<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Defects</div>
+          ${defects.map(d=>`<div style="padding:8px 0;border-top:1px solid var(--line)">
+            <div class="row" style="justify-content:space-between">
+              <div style="font-weight:600">${d.itemCat}</div>
+              <span class="badge ${d.status==='REPORTED'?'b-red':'b-green'}">${d.status==='REPORTED'?'Pending':d.status.replace('RESOLVED_','')}</span>
+            </div>
+            <div class="muted" style="font-size:13px;margin-top:3px">${d.description}</div>
+            ${d.photos.length?`<div class="thumbs">${d.photos.map(p=>`<div class="thumb" onclick="event.stopPropagation();showPhoto('${p.ts}','${d.itemCat}')">🖼</div>`).join('')}</div>`:''}
+          </div>`).join('')}
+        `:''}
+        <div style="margin-top:14px">${renderEngineerActions(v, check, defects)}</div>
+      </div></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderEngineerActions(v, check, defects){
+  if (v.status === 'held'){
+    return `<p class="muted" style="font-size:13px;margin:0 0 12px">Choose how to proceed.</p>
+      <div class="action-row">
+        <button class="eng-action primary" onclick="event.stopPropagation();engineerAction('${v.id}','bring_to_vmu')">🚚 Bring to VMU</button>
+        <button class="eng-action warn" onclick="event.stopPropagation();engineerAction('${v.id}','attending_yard')">🔧 Engineers attending</button>
+        <button class="eng-action danger" onclick="event.stopPropagation();engineerAction('${v.id}','vor')">⛔ VOR — send to workshop</button>
+      </div>`;
+  }
+  if (v.status === 'move_to_vmu' || v.status === 'attending_yard'){
+    return `<p class="muted" style="font-size:13px;margin:0 0 12px">Release when the defect(s) are resolved.</p>
+      <div class="action-row">
+        <button class="eng-action success" onclick="event.stopPropagation();releaseVehicle('${v.id}','Rectified',true)">✓ Release — rectified</button>
+        <button class="eng-action warn" onclick="event.stopPropagation();releaseVehicle('${v.id}','Monitored',false)">Release — monitored</button>
+        <button class="eng-action" onclick="event.stopPropagation();releaseVehicle('${v.id}','No fault found',false)">No fault found</button>
+        <button class="eng-action danger" onclick="event.stopPropagation();engineerAction('${v.id}','vor')">⛔ VOR</button>
+      </div>`;
+  }
+  if (v.status === 'vor'){
+    return `<p class="muted" style="font-size:13px;margin:0 0 12px">Vehicle in workshop. Mark returned when it's back.</p>
+      <div class="action-row">
+        <button class="eng-action primary" onclick="event.stopPropagation();engineerAction('${v.id}','returned_from_workshop')">Mark returned from workshop</button>
+      </div>`;
+  }
+  return '';
+}
+
+function engineerAction(vehicleId, action){
+  const v = DB.vehicles.find(x=>x.id===vehicleId);
+  const check = DB.checks.find(x=>x.id===v.heldCheckId);
+  if (action === 'bring_to_vmu'){
+    v.status = 'move_to_vmu';
+    if (check){ check.movementAuthorisedBy='Engineer'; check.movementAuthorisedAt=nowISO(); check.events.push({type:'MOVEMENT_AUTHORISED',actor:'Engineer',ts:nowISO(),note:'Authorised movement to VMU'}); }
+  } else if (action === 'attending_yard'){
+    v.status = 'attending_yard';
+    if (check) check.events.push({type:'ENGINEERS_ATTENDING',actor:'Engineer',ts:nowISO(),note:'Engineers heading to yard'});
+  } else if (action === 'vor'){
+    resolveAllDefects(check, 'RESOLVED_VOR');
+    if (check){ check.status='void'; check.voidedBy='Engineer'; check.voidedAt=nowISO(); check.voidReason='Sent to workshop'; check.events.push({type:'VOR',actor:'Engineer',ts:nowISO(),note:'Vehicle off road — workshop required'}); }
+    v.status = 'vor';
+  } else if (action === 'returned_from_workshop'){
+    v.status = 'in_service'; v.heldCheckId = null;
+  }
+  saveDB(); engineerVehicleId = null; renderEngineer(); updateTopbar();
+}
+
+function releaseVehicle(vehicleId, basis, isHandBack){
+  const v = DB.vehicles.find(x=>x.id===vehicleId);
+  const check = DB.checks.find(x=>x.id===v.heldCheckId);
+  const defectStatus = basis==='Rectified'?'RESOLVED_RECTIFIED':basis==='Monitored'?'RESOLVED_MONITORED':'RESOLVED_NO_FAULT';
+  resolveAllDefects(check, defectStatus);
+  check.status = 'complete'; check.releasedBy='Engineer'; check.releasedAt=nowISO(); check.releaseBasis=basis;
+  if (basis === 'Monitored') DB.defects.filter(d=>d.checkId===check.id).forEach(d=>{ d.monitored = true; });
+  if (isHandBack && v.status === 'move_to_vmu') check.events.push({type:'DRIVER_NOTIFIED',actor:'Engineer',ts:nowISO(),note:'Handed back to driver at VMU'});
+  check.events.push({type:'RELEASED',actor:'Engineer',ts:nowISO(),note:basis});
+  v.status = 'released';
+  saveDB(); engineerVehicleId = null; renderEngineer(); updateTopbar();
+}
+
+function resolveAllDefects(check, status){
+  if (!check) return;
+  DB.defects.filter(d=>d.checkId===check.id && d.status==='REPORTED').forEach(d=>{
+    d.status = status; d.resolvedAt = nowISO(); d.resolvedBy='Engineer';
+    d.events.push({type:status, actor:'Engineer', ts:nowISO(), note:''});
+  });
+}
+
+/* ============================================================
+   WAITING PULSE
+   ============================================================ */
+setInterval(()=>{
+  if (document.getElementById('screen-waiting').classList.contains('active') && waitingCheckId) renderWaiting();
+}, 1500);
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+loadDB(); updateTopbar(); renderPod();
+</script>
+</body>
+</html>
