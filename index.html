@@ -1605,9 +1605,9 @@ async function saveDB() {
 /* ============================================================
    BOOT
    ============================================================ */
+DB = seed();
 updateTopbar(); 
 renderPod(); 
-loadDB();
 </script>
 
 <!-- FIREBASE SDK INITIALIZATION -->
@@ -1629,6 +1629,7 @@ loadDB();
 
   // Make these available to your main script
   window.firestore = { doc, onSnapshot, setDoc, db };
+loadDB(); 
 </script>
 </body>
 </html>
