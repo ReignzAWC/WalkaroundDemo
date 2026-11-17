@@ -870,7 +870,7 @@ function renderStopScreen(){
       <div style="font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)">Phone Operations now</div>
       <div class="ops-number">${OPS_PHONE}</div>
       <a class="btn danger" style="display:block;text-align:center;text-decoration:none;padding:14px" href="tel:${OPS_PHONE_TEL}" onclick="logOpsCall('${check.id}');return true;">📞 Call Operations</a>
-      <button class="btn ghost" style="width:100%;margin-top:10px;padding:12px" onclick="logOpsSpoken('${check.id}')" id="opsSpokenBtn" ${check.opsCallLoggedAt?'':'style="display:none;width:100%;margin-top:10px;padding:12px"'}>✓ I've spoken to Operations</button>
+      <button class="btn ghost" style="width:100%;margin-top:10px;padding:12px" onclick="logOpsSpoken('${check.id}')">✓ I've spoken to Operations</button>
       ${check.opsCallLoggedAt?`<div class="muted" style="font-size:12px;margin-top:10px;text-align:center">Call logged at ${fmtTime(check.opsCallLoggedAt)}</div>`:''}
     </div>
     <div class="stop-actions">
