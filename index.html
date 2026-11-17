@@ -885,8 +885,10 @@ function logOpsCall(checkId){
 }
 function logOpsSpoken(checkId){
   const c = DB.checks.find(x=>x.id===checkId);
-  c.events.push({type:'OPS_SPOKEN', actor:c.driverId, ts:nowISO(), note:'Driver spoke to Operations'});
-  saveDB(); renderStopScreen();
+  if (!c.opsCallLoggedAt) c.opsCallLoggedAt = nowISO(); // Log the time if they didn't click the phone link
+  c.events.push({type:'OPS_SPOKEN', actor:c.driverId, ts:nowISO(), note:'Driver confirmed they spoke to Operations'});
+  saveDB(); 
+  renderStopScreen();
 }
 function driverScanAnother(checkId){
   const c = DB.checks.find(x=>x.id===checkId);
